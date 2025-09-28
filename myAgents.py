@@ -69,9 +69,8 @@ class ClosestDotAgent(Agent):
         walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState, self.index)
 
-
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # Find path to the closest food using astar
+        return search.astar(problem)
 
     def get_action(self, state):
         return self.path_to_closest_dot(state)[0]
@@ -109,6 +108,9 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         """
         x,y = state
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # Goal is to just eat any food on the map
+        for food in self.food.asList():
+            if (x,y) == food:
+                return True
+        return False
 

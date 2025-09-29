@@ -74,6 +74,10 @@ def myAgentHeuristic(state,  # state is position of only our pacman
 
     #print("State give to Heuristic:" + state)
 
+    return 0
+    
+    # The heuristic is way too slow. Need to calculate a heuristic faster. Just heuristic for closest?
+    # Should try to incoporate a caching/greedy approach to save information to avoid recalculation
     other_pacmen = problem.gameState.get_pacman_positions() # O(n) for n pacmen
     other_pacmen.pop(problem.agent_index)
     cost_list = []
@@ -84,7 +88,7 @@ def myAgentHeuristic(state,  # state is position of only our pacman
         cost_list.append(weighted_dist)
         #cost_list.append(our_dist + 1.5*min_other_dist) 
 
-    return min(cost_list) # O(f) for f pellets
+    return 30*min(cost_list) # O(f) for f pellets
 
 
 """

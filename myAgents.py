@@ -26,11 +26,13 @@ but when you're ready to test your own agent, replace it with MyAgent
 def create_agents(num_pacmen, agent='MyAgent'):
     return [eval(agent)(index=i) for i in range(num_pacmen)]
 
+
+
 class MyAgent(Agent):
     """
     Implementation of your agent.
     """
-
+    targetFoods = []
 
     def path_to_closest_dot(self, gameState):
         """
@@ -41,14 +43,17 @@ class MyAgent(Agent):
         startPosition = gameState.get_pacman_position(self.index)
         food = gameState.getFood()
         walls = gameState.getWalls()
-        problem = AnyFoodSearchProblem(gameState, self.index)
+        problem = AnyFoodSearchProblem(gameState, self.index, gameState.getNumPacmanAgents())
+        #print(MyAgent.targetFoods)
 
         # Find path to the closest food using astar
         return search.astar(problem, myAgentHeuristic) #Use beam search instead of astar. Reduce number of states searched (therefore faster)
 
     def get_action(self, state):
         if len(self.actionList) == 0:
-            self.actionList = self.path_to_closest_dot(state)        
+            self.actionList = self.path_to_closest_dot(state)
+            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList)
+            MyAgent.targetFoods.append(endPos)        
 
         return self.actionList.pop(0)
         #return self.miniMax(state, self.index, 1)[1]
@@ -93,6 +98,19 @@ class MyAgent(Agent):
         # Calculate optimal paths with all pacman in mind, then store. Only return next option then.
         self.actionList = []
         return
+
+def findEndPoint(pos, actions):
+    x, y = pos
+    for act in actions:
+        if act == 'North':
+            x, y = x, y + 1
+        elif act == 'East':
+            x, y = x + 1, y
+        elif act == 'South':
+            x, y = x, y -1
+        elif act == 'West':
+            x, y = x - 1, y
+    return (x,y)
 
 def myAgentHeuristic(state,  # state is position of only our pacman
                     problem): 
@@ -165,7 +183,7 @@ class AnyFoodSearchProblem(PositionSearchProblem):
     method.
     """
 
-    def __init__(self, gameState, agent_index):
+    def __init__(self, gameState, agent_index, numPacmen):
         "Stores information from the gameState.  You don't need to change this."
         # Store the food for later reference
         self.food = gameState.getFood()
@@ -175,9 +193,10 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         self.startState = gameState.get_pacman_position(agent_index)
         self.costFn = lambda x: 1
         self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
-
-        self.gameState = gameState
+        self.targetFoods = MyAgent.targetFoods
         self.agent_index = agent_index
+        self.numPacmen = numPacmen
+        self.gameState = gameState
 
     def is_goal_state(self, state):
         """
@@ -188,7 +207,9 @@ class AnyFoodSearchProblem(PositionSearchProblem):
 
         # Goal is to just eat any food on the map
         for food in self.food.asList():
-            if (x,y) == food:
+            if (x,y) == food:# and food not in self.targetFoods:
                 return True
+            #elif (x,y) == food and self.numPacmen > len(self.food.asList()):
+            #    return True
         return False
 

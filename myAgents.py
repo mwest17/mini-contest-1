@@ -32,7 +32,6 @@ class MyAgent(Agent):
     """
     Implementation of your agent.
     """
-    targetFoods = set()
 
     def path_to_closest_dot(self, gameState):
         """
@@ -42,16 +41,12 @@ class MyAgent(Agent):
         problem = AnyFoodSearchProblem(gameState, self.index, gameState.getNumPacmanAgents())
 
         # Find path to the closest food using astar
-        return search.astar(problem, myAgentHeuristic)
-        # Swap astar for greedy or beam??
+        return search.astar(problem, myAgentHeuristic) # Swap astar for greedy or beam??
+
 
     def get_action(self, state):
-        if len(self.actionList) == 0: # Only recompute when we have reached state 
-            MyAgent.targetFoods.discard(self.destination)
+        if len(self.actionList) == 0: # Only recompute when we have reached the goal state 
             self.actionList = self.path_to_closest_dot(state)
-            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList)
-            self.destination = endPos
-            MyAgent.targetFoods.add(endPos)
 
         return self.actionList.pop(0)
 
@@ -64,55 +59,27 @@ class MyAgent(Agent):
         """
         # Calculate optimal paths with all pacman in mind, then store. Only return next option then.
         self.actionList = []
-        self.destination = None
         return
 
 
-def findEndPoint(pos, actions):
-    x, y = pos
-    for act in actions:
-        if act == 'North':
-            x, y = x, y + 1
-        elif act == 'East':
-            x, y = x + 1, y
-        elif act == 'South':
-            x, y = x, y -1
-        elif act == 'West':
-            x, y = x - 1, y
-    return (x,y)
-
 # On Matthew's laptop:
-#~926 pacman.py
-#~959 autograder.py
-# Try to reduce object copying
+#~925 pacman.py
+#~988 autograder.py
 def myAgentHeuristic(state,  # state is position of only our pacman
                     problem): 
     # Incentivizes states that are closer to pellets
-    # However it disincentivizes states that are near where other pacmen are trying to go to
+    # However it disincentivizes states that are near other pacmen
     # If we choose well enough, the pacmen can all go to unqiue pellets that are hard for other pacmen to reach
     # This avoids recomputation and makes the pacmen eat all the pellets quicker
 
-    cost_list = [abs(state[0] - f[0]) + abs(state[1] - f[1]) for f in problem.food]
-    
-    if problem.numPacmen < problem.amountFood and len(MyAgent.targetFoods) > 0: # We want to avoid where other pacmen are going
-        # Weighted distance
-        dist_to_other_goals = min([abs(state[0] - goal[0]) + abs(state[1] - goal[1]) for goal in MyAgent.targetFoods])
-        cost = min(cost_list) / (0.015*dist_to_other_goals + 1)
-    else:
-        # Absolute distance
-        cost = min(cost_list)
-    return 42*cost # The meaning of life
+    cost_list = []
+    for f in problem.food:
+        dist_food = abs(state[0] - f[0]) + abs(state[1] - f[1]) # Our distance to food
+        min_other_dist = min([abs(pos[0] - f[0]) + abs(pos[1] - f[1]) for pos in problem.other_pacmen]) # Food distance to other pacmen
+        weighted_dist = dist_food / (min_other_dist + 1) # Weight our distance to food by others distance
+        cost_list.append(weighted_dist)
 
-    # Max the 2 heuristics??
-    # other_pacmen = problem.gameState.get_pacman_positions() # O(n) for n pacmen
-    # other_pacmen.pop(problem.agent_index)
-    # cost_list = []
-    # for food in problem.food.asList(): #O(f) for f pellets
-    #     our_dist = abs(state[0] - food[0]) + abs(state[1] - food[1]) #O(1)
-    #     min_other_dist = min([abs(pos[0] - food[0]) + abs(pos[1] - food[1]) for pos in other_pacmen]) # O(n) for n pacmen
-    #     weighted_dist = our_dist / (min_other_dist + 1) # O(1)
-    #     cost_list.append(weighted_dist)
-    #     #cost_list.append(our_dist + 1.5*min_other_dist) 
+    return 42*min(cost_list) # The meaning of life * best weighted food
 
 
 
@@ -148,6 +115,9 @@ class AnyFoodSearchProblem(PositionSearchProblem):
 
         self.food = gameState.getFood().asList()
         self.amountFood = len(self.food)
+
+        self.other_pacmen = gameState.get_pacman_positions()
+        self.other_pacmen.pop(agent_index)
 
     def is_goal_state(self, state):
         """

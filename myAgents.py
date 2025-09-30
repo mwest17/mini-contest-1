@@ -46,11 +46,11 @@ class MyAgent(Agent):
 
     def get_action(self, state):
         if len(self.actionList) == 0: # Only recompute when we have reached state 
-            MyAgent.targetFoods.discard(self.prevPos)
+            MyAgent.targetFoods.discard(self.destination)
             self.actionList = self.path_to_closest_dot(state)
-            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList) # Store this off? Prob should
-            self.prevPos = endPos
-            MyAgent.targetFoods.add(endPos)      # We should remove endPos to make it only store current goals  
+            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList)
+            self.destination = endPos
+            MyAgent.targetFoods.add(endPos)
 
         return self.actionList.pop(0)
 
@@ -63,7 +63,7 @@ class MyAgent(Agent):
         """
         # Calculate optimal paths with all pacman in mind, then store. Only return next option then.
         self.actionList = []
-        self.prevPos = None
+        self.destination = None
         return
 
 
@@ -85,26 +85,10 @@ def findEndPoint(pos, actions):
 #~615 autograder.py
 def myAgentHeuristic(state,  # state is position of only our pacman
                     problem): 
-    # Should check if state is close to another pacman's chosen 
-
-    # We want to avoid recomputing, so we want to be far from other pacmen's chosen
-        # What about when other pacmen are going for only food left. Costs us extra compute
-            # Check if there are less food than pacmen, if there are, then don't weight based on this part
-
-    # Do we even care about other pacmen in this scenario?? I think prob not. We only care about where they will be going
-        # and we want to avoid going in the same area.
-
-    # list of goal pellets
-    # our pos
-    # for all food pellets
-        # Find our manhattan distance
-        # Find distance of pellet from all other pacmen chosen pellets
-        # Find the chosen that is the closest to the other pellets
-        # Compute weighted ratio between the two
-
-    # if numPacmen > pellets
-        # Do we want to just the min dist to food pellet (to have them just go)?? 
-        # If we do it right, could save on final few turns compute cost. Since we don't need to calc of every pacmen to other goal pellets
+    # Incentivizes states that are closer to pellets
+    # However it disincentivizes states that are near where other pacmen are trying to go to
+    # If we choose well enough, the pacmen can all go to unqiue pellets that are hard for other pacmen to reach
+    # This avoids recomputation and makes the pacmen eat all the pellets quicker
 
     food = problem.food.asList()
 

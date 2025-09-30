@@ -42,7 +42,8 @@ class MyAgent(Agent):
         problem = AnyFoodSearchProblem(gameState, self.index, gameState.getNumPacmanAgents())
 
         # Find path to the closest food using astar
-        return search.astar(problem, myAgentHeuristic) #Use beam search instead of astar. Reduce number of states searched (therefore faster)
+        return search.astar(problem, myAgentHeuristic)
+        # Swap astar for greedy or beam??
 
     def get_action(self, state):
         if len(self.actionList) == 0: # Only recompute when we have reached state 
@@ -81,8 +82,9 @@ def findEndPoint(pos, actions):
     return (x,y)
 
 # On Matthew's laptop:
-#~890 pacman.py
-#~615 autograder.py
+#~926 pacman.py
+#~959 autograder.py
+# Try to reduce object copying
 def myAgentHeuristic(state,  # state is position of only our pacman
                     problem): 
     # Incentivizes states that are closer to pellets
@@ -90,11 +92,9 @@ def myAgentHeuristic(state,  # state is position of only our pacman
     # If we choose well enough, the pacmen can all go to unqiue pellets that are hard for other pacmen to reach
     # This avoids recomputation and makes the pacmen eat all the pellets quicker
 
-    food = problem.food.asList()
-
-    cost_list = [abs(state[0] - f[0]) + abs(state[1] - f[1]) for f in food]
+    cost_list = [abs(state[0] - f[0]) + abs(state[1] - f[1]) for f in problem.food]
     
-    if problem.numPacmen < len(food) and len(MyAgent.targetFoods) > 0: # We want to avoid where other pacmen are going
+    if problem.numPacmen < problem.amountFood and len(MyAgent.targetFoods) > 0: # We want to avoid where other pacmen are going
         # Weighted distance
         dist_to_other_goals = min([abs(state[0] - goal[0]) + abs(state[1] - goal[1]) for goal in MyAgent.targetFoods])
         cost = min(cost_list) / (0.015*dist_to_other_goals + 1)
@@ -102,6 +102,17 @@ def myAgentHeuristic(state,  # state is position of only our pacman
         # Absolute distance
         cost = min(cost_list)
     return 42*cost # The meaning of life
+
+    # Max the 2 heuristics??
+    # other_pacmen = problem.gameState.get_pacman_positions() # O(n) for n pacmen
+    # other_pacmen.pop(problem.agent_index)
+    # cost_list = []
+    # for food in problem.food.asList(): #O(f) for f pellets
+    #     our_dist = abs(state[0] - food[0]) + abs(state[1] - food[1]) #O(1)
+    #     min_other_dist = min([abs(pos[0] - food[0]) + abs(pos[1] - food[1]) for pos in other_pacmen]) # O(n) for n pacmen
+    #     weighted_dist = our_dist / (min_other_dist + 1) # O(1)
+    #     cost_list.append(weighted_dist)
+    #     #cost_list.append(our_dist + 1.5*min_other_dist) 
 
 
 
@@ -123,7 +134,7 @@ class AnyFoodSearchProblem(PositionSearchProblem):
     def __init__(self, gameState, agent_index, numPacmen):
         "Stores information from the gameState.  You don't need to change this."
         # Store the food for later reference
-        self.food = gameState.getFood()
+        #self.food = gameState.getFood()
 
         # Store info for the PositionSearchProblem (no need to change this)
         self.walls = gameState.getWalls()
@@ -135,6 +146,9 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         self.agent_index = agent_index
         self.numPacmen = numPacmen
 
+        self.food = gameState.getFood().asList()
+        self.amountFood = len(self.food)
+
     def is_goal_state(self, state):
         """
         The state is Pacman's position. Fill this in with a goal test that will
@@ -143,8 +157,8 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         x,y = state
 
         # Goal is to just eat any food on the map
-        for food in self.food.asList():
-            if (x,y) == food:
+        for f in self.food:
+            if (x,y) == f:
                 return True
         return False
 

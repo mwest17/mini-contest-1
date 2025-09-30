@@ -32,61 +32,27 @@ class MyAgent(Agent):
     """
     Implementation of your agent.
     """
-    targetFoods = []
+    targetFoods = set()
 
     def path_to_closest_dot(self, gameState):
         """
         Returns a path (a list of actions) to the closest dot, starting from
         gameState.
         """
-        # Here are some useful elements of the startState
-        startPosition = gameState.get_pacman_position(self.index)
-        food = gameState.getFood()
-        walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState, self.index, gameState.getNumPacmanAgents())
-        #print(MyAgent.targetFoods)
 
         # Find path to the closest food using astar
         return search.astar(problem, myAgentHeuristic) #Use beam search instead of astar. Reduce number of states searched (therefore faster)
 
     def get_action(self, state):
-        if len(self.actionList) == 0:
+        if len(self.actionList) == 0: # Only recompute when we have reached state 
+            MyAgent.targetFoods.discard(self.prevPos)
             self.actionList = self.path_to_closest_dot(state)
-            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList)
-            MyAgent.targetFoods.append(endPos)        
+            endPos = findEndPoint(state.get_pacman_position(self.index), self.actionList) # Store this off? Prob should
+            self.prevPos = endPos
+            MyAgent.targetFoods.add(endPos)      # We should remove endPos to make it only store current goals  
 
         return self.actionList.pop(0)
-        #return self.miniMax(state, self.index, 1)[1]
-
-
-    # We can store whatever depth we calculated to
-    # Since other pacmen will also perform optimally
-    def maxNode(self, state, curAgent: int, depth: int, alpha: int, beta: int):
-        maxState = (float('-inf'), "")
-        nextAgent = (curAgent + 1) % state.getNumAgents()
-        
-        for act in state.getLegalPacmanActions(curAgent):
-            successor = state.generatePacmanSuccessor(act, curAgent)
-            mmNode = self.miniMax(successor, nextAgent, depth, alpha, beta)
-            if maxState[0] < mmNode[0]: # Find and store max node
-                maxState = (mmNode[0], act) 
-            
-            # Prune
-            if maxState[0] > beta: return maxState
-            alpha = max(alpha, maxState[0])
-
-        # Return tuple of path cost and action needed to reach it
-        return maxState 
-
-
-    def miniMax(self, state, curAgent: int, depth: int, alpha=float('-inf'), beta=float('inf')):
-        if (depth == 0 and curAgent == 0):# or (state.is_win() or state.is_lose()): 
-            # Searched as far as we can
-            return (state.getScore(), "")
-        if curAgent == 0: # Pacman's Turn
-            return self.maxNode(state, curAgent, depth - 1, alpha, beta)
-        else:
-            return self.maxNode(state, curAgent, depth, alpha, beta)
 
 
     def initialize(self):
@@ -97,7 +63,9 @@ class MyAgent(Agent):
         """
         # Calculate optimal paths with all pacman in mind, then store. Only return next option then.
         self.actionList = []
+        self.prevPos = None
         return
+
 
 def findEndPoint(pos, actions):
     x, y = pos
@@ -112,61 +80,46 @@ def findEndPoint(pos, actions):
             x, y = x - 1, y
     return (x,y)
 
+# On Matthew's laptop:
+#~890 pacman.py
+#~615 autograder.py
 def myAgentHeuristic(state,  # state is position of only our pacman
                     problem): 
-    # Val - Manhattan distance to all other pacmen
-    # Lower would be better than
-    # States closer to a pellet but far away any other pacmen should have the lowest return value
-    # For all food pellets, find manhattan distance to all pacman indexes. 
-        # Find one with lowest dist to our index, but highest combined distance to other pacmen
-        # Based on ordering of distances to other pacmen, make it so 1 is added to each that is closer to other pacmen??
+    # Should check if state is close to another pacman's chosen 
+
+    # We want to avoid recomputing, so we want to be far from other pacmen's chosen
+        # What about when other pacmen are going for only food left. Costs us extra compute
+            # Check if there are less food than pacmen, if there are, then don't weight based on this part
+
+    # Do we even care about other pacmen in this scenario?? I think prob not. We only care about where they will be going
+        # and we want to avoid going in the same area.
+
+    # list of goal pellets
+    # our pos
+    # for all food pellets
+        # Find our manhattan distance
+        # Find distance of pellet from all other pacmen chosen pellets
+        # Find the chosen that is the closest to the other pellets
+        # Compute weighted ratio between the two
+
+    # if numPacmen > pellets
+        # Do we want to just the min dist to food pellet (to have them just go)?? 
+        # If we do it right, could save on final few turns compute cost. Since we don't need to calc of every pacmen to other goal pellets
+
+    food = problem.food.asList()
+
+    cost_list = [abs(state[0] - f[0]) + abs(state[1] - f[1]) for f in food]
     
-    # Find distance to other pacmen
-    # Optimal parallelization of pacmen activity would be for them all to be doing their own things in the corners. So 2width + 2length would be total dist.
-    # So find actual manhattan distance between the pacmen. Then subtract from 2width + 2length
-
-    # Dist to closest pellet + dist to other pacmen
-
-    #print("State give to Heuristic:" + state)
-    
-    # The heuristic is way too slow. Need to calculate a heuristic faster. Just heuristic for closest?
-    # Should try to incoporate a caching/greedy approach to save information to avoid recalculation
-    other_pacmen = problem.gameState.get_pacman_positions() # O(n) for n pacmen
-    other_pacmen.pop(problem.agent_index)
-    cost_list = []
-    for food in problem.food.asList(): #O(f) for f pellets
-        our_dist = abs(state[0] - food[0]) + abs(state[1] - food[1]) #O(1)
-        min_other_dist = min([abs(pos[0] - food[0]) + abs(pos[1] - food[1]) for pos in other_pacmen]) # O(n) for n pacmen
-        weighted_dist = our_dist / (min_other_dist + 1) # O(1)
-        cost_list.append(weighted_dist)
-        #cost_list.append(our_dist + 1.5*min_other_dist) 
-
-    return 42*min(cost_list) # O(f) for f pellets
+    if problem.numPacmen < len(food) and len(MyAgent.targetFoods) > 0: # We want to avoid where other pacmen are going
+        # Weighted distance
+        dist_to_other_goals = min([abs(state[0] - goal[0]) + abs(state[1] - goal[1]) for goal in MyAgent.targetFoods])
+        cost = min(cost_list) / (0.015*dist_to_other_goals + 1)
+    else:
+        # Absolute distance
+        cost = min(cost_list)
+    return 42*cost # The meaning of life
 
 
-"""
-Put any other SearchProblems or search methods below. You may also import classes/methods in
-search.py and searchProblems.py. (ClosestDotAgent as an example below)
-"""
-
-class ClosestDotAgent(Agent):
-
-    def path_to_closest_dot(self, gameState):
-        """
-        Returns a path (a list of actions) to the closest dot, starting from
-        gameState.
-        """
-        # Here are some useful elements of the startState
-        startPosition = gameState.get_pacman_position(self.index)
-        food = gameState.getFood()
-        walls = gameState.getWalls()
-        problem = AnyFoodSearchProblem(gameState, self.index)
-
-        # Find path to the closest food using astar
-        return search.astar(problem)
-
-    def get_action(self, state):
-        return self.path_to_closest_dot(state)[0]
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
@@ -192,11 +145,11 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         self.walls = gameState.getWalls()
         self.startState = gameState.get_pacman_position(agent_index)
         self.costFn = lambda x: 1
+        
         self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
-        self.targetFoods = MyAgent.targetFoods
+
         self.agent_index = agent_index
         self.numPacmen = numPacmen
-        self.gameState = gameState
 
     def is_goal_state(self, state):
         """
@@ -207,9 +160,7 @@ class AnyFoodSearchProblem(PositionSearchProblem):
 
         # Goal is to just eat any food on the map
         for food in self.food.asList():
-            if (x,y) == food:# and food not in self.targetFoods:
+            if (x,y) == food:
                 return True
-            #elif (x,y) == food and self.numPacmen > len(self.food.asList()):
-            #    return True
         return False
 

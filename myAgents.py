@@ -31,6 +31,7 @@ class MyAgent(Agent):
     Implementation of your agent.
     """
 
+
     def path_to_closest_dot(self, gameState):
         """
         Returns a path (a list of actions) to the closest dot, starting from
@@ -43,10 +44,45 @@ class MyAgent(Agent):
         problem = AnyFoodSearchProblem(gameState, self.index)
 
         # Find path to the closest food using astar
-        return search.astar(problem, myAgentHeuristic)
+        return search.astar(problem, myAgentHeuristic) #Use beam search instead of astar. Reduce number of states searched (therefore faster)
 
     def get_action(self, state):
-        return self.path_to_closest_dot(state)[0]
+        if len(self.actionList) == 0:
+            self.actionList = self.path_to_closest_dot(state)        
+
+        return self.actionList.pop(0)
+        #return self.miniMax(state, self.index, 1)[1]
+
+
+    # We can store whatever depth we calculated to
+    # Since other pacmen will also perform optimally
+    def maxNode(self, state, curAgent: int, depth: int, alpha: int, beta: int):
+        maxState = (float('-inf'), "")
+        nextAgent = (curAgent + 1) % state.getNumAgents()
+        
+        for act in state.getLegalPacmanActions(curAgent):
+            successor = state.generatePacmanSuccessor(act, curAgent)
+            mmNode = self.miniMax(successor, nextAgent, depth, alpha, beta)
+            if maxState[0] < mmNode[0]: # Find and store max node
+                maxState = (mmNode[0], act) 
+            
+            # Prune
+            if maxState[0] > beta: return maxState
+            alpha = max(alpha, maxState[0])
+
+        # Return tuple of path cost and action needed to reach it
+        return maxState 
+
+
+    def miniMax(self, state, curAgent: int, depth: int, alpha=float('-inf'), beta=float('inf')):
+        if (depth == 0 and curAgent == 0):# or (state.is_win() or state.is_lose()): 
+            # Searched as far as we can
+            return (state.getScore(), "")
+        if curAgent == 0: # Pacman's Turn
+            return self.maxNode(state, curAgent, depth - 1, alpha, beta)
+        else:
+            return self.maxNode(state, curAgent, depth, alpha, beta)
+
 
     def initialize(self):
         """
@@ -55,6 +91,7 @@ class MyAgent(Agent):
         leave it blank
         """
         # Calculate optimal paths with all pacman in mind, then store. Only return next option then.
+        self.actionList = []
         return
 
 def myAgentHeuristic(state,  # state is position of only our pacman
@@ -73,8 +110,6 @@ def myAgentHeuristic(state,  # state is position of only our pacman
     # Dist to closest pellet + dist to other pacmen
 
     #print("State give to Heuristic:" + state)
-
-    return 0
     
     # The heuristic is way too slow. Need to calculate a heuristic faster. Just heuristic for closest?
     # Should try to incoporate a caching/greedy approach to save information to avoid recalculation
@@ -88,7 +123,7 @@ def myAgentHeuristic(state,  # state is position of only our pacman
         cost_list.append(weighted_dist)
         #cost_list.append(our_dist + 1.5*min_other_dist) 
 
-    return 30*min(cost_list) # O(f) for f pellets
+    return 42*min(cost_list) # O(f) for f pellets
 
 
 """
